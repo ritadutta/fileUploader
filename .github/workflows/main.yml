@@ -1,0 +1,93 @@
+name: Fetch Commit Message
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  fetch_commit_message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout other repository
+        uses: actions/checkout@v2
+        with:
+          repository: ritadutta/testing
+          ref: main
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Fetch Commit Message
+        id: check_commit
+        run: |
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          echo "Commit Message: $COMMIT_MESSAGE"
+          echo "::set-output name=commit_message::$COMMIT_MESSAGE"
+
+      - name: Extract URL from Commit Message
+        id: extract_url
+        run: |
+          COMMIT_MESSAGE="${{ steps.check_commit.outputs.commit_message }}"
+          if [[ $COMMIT_MESSAGE =~ (http.*com) ]]; then
+            URL="${BASH_REMATCH[1]}"
+            echo "Found URL: $URL"
+            echo "::set-output name=url::$URL"
+            echo "::set-output name=success::true"
+          else
+            echo "No matching URL found"
+            echo "::set-output name=success::false"
+          fi
+
+      - name: Cache dependencies 123
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            /opt/allure
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            ${{ runner.os }}-
+ 
+      - name: Checkout code
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        uses: actions/checkout@v2
+ 
+      - name: Install Chromium
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        run: sudo apt install chromium-browser
+ 
+      - name: Use Node.js
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        uses: actions/setup-node@v1
+        with:
+           node-version: 16.15.1
+ 
+      - name: Install dependencies
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        run: npm install
+ 
+      - name: Run E2E tests
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        run: npx cross-env BASE_URL=${{ steps.extract_url.outputs.url }} npm run web
+ 
+      - name: Download and Install Allure
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        run: |
+           wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.16.0/allure-commandline-2.16.0.zip
+           unzip allure-commandline-2.16.0.zip
+           sudo mv allure-2.16.0 /opt/allure
+           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+ 
+      - name: Generate Allure Reports
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        run: |
+           allure generate allure-results --clean -o allure-report
+ 
+      - name: Publish Allure Reports
+        if: ${{ steps.extract_url.outputs.success == 'true' }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+           github_token: ${{ secrets.GITHUB_TOKEN }}
+           publish_dir: ./allure-report
