@@ -17,9 +17,9 @@ config.capabilities = [
      browserName: "chrome",
      browserVersion: "latest",
      acceptInsecureCerts: true,
-    // 'goog:chromeOptions': {
-    //       args: ["--headless", "user-agent=...","--disable-gpu","--window-size=1440,735"]
-    // }
+    'goog:chromeOptions': {
+          args: ["--headless", "user-agent=...","--disable-gpu","--window-size=1440,735"]
+    }
    },
    
   //    {
