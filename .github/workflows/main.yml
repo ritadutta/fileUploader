@@ -9,34 +9,33 @@ jobs:
   fetch_pr_comment:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout other repository
+      - name: Checkout current repository
         uses: actions/checkout@v2
-        with:
-          repository: ritadutta/testing
-          ref: main
-          token: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Get the PR number from the other repo
         id: get_pr_number
         run: |
-          REPO="ritadutta/testing"  # The repository to fetch PR from
           COMMIT_SHA=${{ github.sha }}
-          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
-            "https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/pulls" \
+          TARGET_REPO="ritadutta/testing"
+          echo "Fetching PR number for commit: $COMMIT_SHA in repo: $TARGET_REPO"
+          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/commits/$COMMIT_SHA/pulls" \
             | jq -r '.[0].number')
           if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
-            echo "No pull request found for this commit in the other repo."
+            echo "No pull request found for this commit."
             exit 1
           fi
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "PR Number: $PR_NUMBER"
 
-      - name: Fetch PR Comment from another repo
+      - name: Fetch PR Comment from the other repo
         id: fetch_pr_comment
         run: |
-          REPO="ritadutta/testing"  # The repository to fetch PR from
+          TARGET_REPO="ritadutta/testing"
           PR_NUMBER=${{ env.PR_NUMBER }}
-          PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
-            "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments")
+          echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
+          PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
           echo "API Response: $PR_COMMENT"
           COMMENT_BODY=$(echo "$PR_COMMENT" | jq -r '.[0].body')
           if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" == "null" ]; then
