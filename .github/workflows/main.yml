@@ -15,7 +15,9 @@ jobs:
       - name: Get the PR number from the other repo
         id: get_pr_number
         run: |
-          COMMIT_SHA=${{ github.sha }}
+          COMMIT_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/ritadutta/testing_fu/commits/main" \
+            | jq -r '.sha')
           TARGET_REPO="ritadutta/testing_fu"
           echo "Fetching PR number for commit: $COMMIT_SHA in repo: $TARGET_REPO"
           PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
