@@ -9,112 +9,95 @@ jobs:
   fetch_pr_comment:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@v2
+        - name: Get the PR number and commit SHA
+          id: get_pr_number_sha
+          run: |
+           TARGET_REPO="ritadutta/testing_fu"  # Specify the owner name and repository name
+           COMMIT_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/pulls/${{ github.event.pull_request.number }}" \
+            | jq -r '.head.sha')
+           PR_NUMBER=${{ github.event.pull_request.number }}
+           echo "Fetching PR number $PR_NUMBER with commit SHA $COMMIT_SHA from repo $TARGET_REPO"
+           echo "::set-output name=commit_sha::$COMMIT_SHA"
+           echo "::set-output name=pr_number::$PR_NUMBER"
+  
+        - name: Fetch PR Comment
+          id: fetch_pr_comment
+          run: |
+            TARGET_REPO="ritadutta/testing_fu"
+            PR_NUMBER=${{ steps.get_pr_number_sha.outputs.pr_number }}
+            COMMIT_SHA=${{ steps.get_pr_number_sha.outputs.commit_sha }}
+            echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
+            PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
+            echo "::set-output name=pr_comment::$PR_COMMENT"
 
-      - name: Get the PR number from the other repo
-        id: get_pr_number
-        run: |
-          COMMIT_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/ritadutta/testing_fu/commits/main" \
-            | jq -r '.sha')
-          TARGET_REPO="ritadutta/testing_fu"
-          echo "Fetching PR number for commit: $COMMIT_SHA in repo: $TARGET_REPO"
-          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$TARGET_REPO/commits/$COMMIT_SHA/pulls" \
-            | jq -r '.[0].number')
-          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
-            echo "No pull request found for this commit."
-            exit 1
-          fi
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "PR Number: $PR_NUMBER"
-
-      - name: Fetch PR Comment from the other repo
-        id: fetch_pr_comment
-        run: |
-          TARGET_REPO="ritadutta/testing_fu"
-          PR_NUMBER=${{ env.PR_NUMBER }}
-          echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
-          PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
-          echo "API Response: $PR_COMMENT"
-          COMMENT_BODY=$(echo "$PR_COMMENT" | jq -r '.[0].body')
-          if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" == "null" ]; then
-            echo "No comments found or invalid response format."
-            echo "::set-output name=success::false"
-          else
-            echo "PR Comment: $COMMENT_BODY"
-            echo "::set-output name=pr_comment::$COMMENT_BODY"
-            echo "::set-output name=success::true"
-          fi
-
-      - name: Extract URL from PR Comment
-        if: ${{ steps.fetch_pr_comment.outputs.success == 'true' }}
-        id: extract_url
-        run: |
-          PR_COMMENT="${{ steps.fetch_pr_comment.outputs.pr_comment }}"
-          if [[ $PR_COMMENT =~ (http.*com) ]]; then
+        - name: Extract URL from PR Comment
+          if: ${{ steps.fetch_pr_comment.outputs.success == 'true' }}
+          id: extract_url
+          run: |
+           PR_COMMENT="${{ steps.fetch_pr_comment.outputs.pr_comment }}"
+           if [[ $PR_COMMENT =~ (http.*com) ]]; then
             URL="${BASH_REMATCH[1]}"
             echo "Found URL: $URL"
             echo "::set-output name=url::$URL"
             echo "::set-output name=success::true"
-          else
+           else
             echo "No matching URL found"
             echo "::set-output name=success::false"
-          fi
+           fi
 
-      - name: Cache dependencies
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        uses: actions/cache@v2
-        with:
-          path: |
+        - name: Cache dependencies
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          uses: actions/cache@v2
+          with:
+           path: |
             ~/.npm
             ~/.cache
             /opt/allure
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
+           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+           restore-keys: |
             ${{ runner.os }}-node-
             ${{ runner.os }}-
 
-      - name: Checkout code again (if needed)
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        uses: actions/checkout@v2
+        - name: Checkout code again (if needed)
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          uses: actions/checkout@v2
 
-      - name: Install Chromium
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        run: sudo apt install chromium-browser
+        - name: Install Chromium
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          run: sudo apt install chromium-browser
 
-      - name: Use Node.js
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        uses: actions/setup-node@v1
-        with:
+        - name: Use Node.js
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          uses: actions/setup-node@v1
+          with:
            node-version: 16.15.1
 
-      - name: Install dependencies
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        run: npm install
+        - name: Install dependencies
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          run: npm install
 
-      - name: Run E2E tests
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        run: npx cross-env BASE_URL=${{ steps.extract_url.outputs.url }} npm run web
+        - name: Run E2E tests
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          run: npx cross-env BASE_URL=${{ steps.extract_url.outputs.url }} npm run web
 
-      - name: Download and Install Allure
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        run: |
+        - name: Download and Install Allure
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          run: |
            wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.16.0/allure-commandline-2.16.0.zip
            unzip allure-commandline-2.16.0.zip
            sudo mv allure-2.16.0 /opt/allure
            sudo ln -s /opt/allure/bin/allure /usr/bin/allure
 
-      - name: Generate Allure Reports
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        run: |
+        - name: Generate Allure Reports
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          run: |
            allure generate allure-results --clean -o allure-report
 
-      - name: Publish Allure Reports
-        if: ${{ steps.extract_url.outputs.success == 'true' }}
-        uses: peaceiris/actions-gh-pages@v3
-        with:
+        - name: Publish Allure Reports
+          if: ${{ steps.extract_url.outputs.success == 'true' }}
+          uses: peaceiris/actions-gh-pages@v3
+          with:
            github_token: ${{ secrets.GITHUB_TOKEN }}
            publish_dir: ./allure-report
