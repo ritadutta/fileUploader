@@ -16,7 +16,7 @@ jobs:
         id: get_pr_number
         run: |
           COMMIT_SHA=${{ github.sha }}
-          TARGET_REPO="ritadutta/testing"
+          TARGET_REPO="ritadutta/testing_fu"
           echo "Fetching PR number for commit: $COMMIT_SHA in repo: $TARGET_REPO"
           PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$TARGET_REPO/commits/$COMMIT_SHA/pulls" \
@@ -31,7 +31,7 @@ jobs:
       - name: Fetch PR Comment from the other repo
         id: fetch_pr_comment
         run: |
-          TARGET_REPO="ritadutta/testing"
+          TARGET_REPO="ritadutta/testing_fu"
           PR_NUMBER=${{ env.PR_NUMBER }}
           echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
           PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
