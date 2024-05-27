@@ -12,34 +12,31 @@ jobs:
       - name: Checkout current repository
         uses: actions/checkout@v2
 
-      - name: Get the latest commit SHA from the target repo
-        id: get_latest_commit_sha
+      - name: Get the latest pull request and commit SHA from the target repo
+        id: get_pr_and_commit_sha
         run: |
           TARGET_REPO="ritadutta/testing_fu"
-          LATEST_COMMIT_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$TARGET_REPO/commits?per_page=1" | jq -r '.[0].sha')
-          echo "Latest commit SHA: $LATEST_COMMIT_SHA"
-          echo "::set-output name=commit_sha::$LATEST_COMMIT_SHA"
-
-      - name: Get the PR number associated with the commit SHA
-        id: get_pr_number
-        run: |
-          TARGET_REPO="ritadutta/testing_fu"
-          COMMIT_SHA=${{ steps.get_latest_commit_sha.outputs.commit_sha }}
-          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$TARGET_REPO/commits/$COMMIT_SHA/pulls" | jq -r '.[0].number')
+          # Fetch the latest pull request
+          PR_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/pulls?state=open&sort=updated&direction=desc" | jq -r '.[0]')
+          
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+          COMMIT_SHA=$(echo "$PR_INFO" | jq -r '.head.sha')
+          
           if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
-            echo "No pull request found for this commit."
+            echo "No pull request found."
             exit 1
           fi
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "PR Number: $PR_NUMBER"
 
+          echo "Fetching PR number $PR_NUMBER with commit SHA $COMMIT_SHA from repo $TARGET_REPO"
+          echo "::set-output name=commit_sha::$COMMIT_SHA"
+          echo "::set-output name=pr_number::$PR_NUMBER"
+      
       - name: Fetch PR Comment from the target repo
         id: fetch_pr_comment
         run: |
           TARGET_REPO="ritadutta/testing_fu"
-          PR_NUMBER=${{ env.PR_NUMBER }}
+          PR_NUMBER=${{ steps.get_pr_and_commit_sha.outputs.pr_number }}
           echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
           PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
