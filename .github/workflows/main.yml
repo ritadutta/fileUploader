@@ -38,15 +38,15 @@ jobs:
           TARGET_REPO="ritadutta/testing_fu"
           PR_NUMBER=${{ steps.get_pr_and_commit_sha.outputs.pr_number }}
           echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
-          PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          PR_COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments?sort=created&direction=desc")
-          echo "API Response: $PR_COMMENT"
-          COMMENT_BODY=$(echo "$PR_COMMENT" | jq -r '.[0].body')
+          echo "API Response: $PR_COMMENTS"
+          COMMENT_BODY=$(echo "$PR_COMMENTS" | jq -r '.[0].body')
           if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" == "null" ]; then
             echo "No comments found or invalid response format."
             echo "::set-output name=success::false"
           else
-            echo "PR Comment: $COMMENT_BODY"
+            echo "Latest PR Comment: $COMMENT_BODY"
             echo "::set-output name=pr_comment::$COMMENT_BODY"
             echo "::set-output name=success::true"
           fi
