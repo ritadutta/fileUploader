@@ -12,63 +12,51 @@ jobs:
       - name: Checkout current repository
         uses: actions/checkout@v2
 
-      - name: Get all open pull requests
-        id: get_prs
+      - name: Get the latest pull request and commit SHA from the target repo
+        id: get_pr_and_commit_sha
         run: |
           TARGET_REPO="ritadutta/testing_fu"
-          # Fetch all open pull requests
-          PR_LIST=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$TARGET_REPO/pulls?state=open&sort=updated&direction=desc")
-          echo "PR List: $PR_LIST"
-          PR_NUMBERS=$(echo "$PR_LIST" | jq -r '.[].number' | tr '\n' ' ')
-          if [ -z "$PR_NUMBERS" ]; then
-            echo "No open pull requests found."
+          # Fetch the latest pull request
+          PR_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/pulls?state=open&sort=updated&direction=desc" | jq -r '.[0]')
+          
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+          COMMIT_SHA=$(echo "$PR_INFO" | jq -r '.head.sha')
+          
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
+            echo "No pull request found."
             exit 1
           fi
-          echo "::set-output name=pr_numbers::$PR_NUMBERS"
 
-      - name: Fetch latest comment from all open pull requests
-        id: fetch_latest_comment
+          echo "Fetching PR number $PR_NUMBER with commit SHA $COMMIT_SHA from repo $TARGET_REPO"
+          echo "::set-output name=commit_sha::$COMMIT_SHA"
+          echo "::set-output name=pr_number::$PR_NUMBER"
+      
+      - name: Fetch PR Comment from the target repo
+        id: fetch_pr_comment
         run: |
           TARGET_REPO="ritadutta/testing_fu"
-          PR_NUMBERS=(${{ steps.get_prs.outputs.pr_numbers }})
-          LATEST_COMMENT=""
-          LATEST_COMMENT_DATE="1970-01-01T00:00:00Z"
-
-          for PR_NUMBER in "${PR_NUMBERS[@]}"; do
-            echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
-            PR_COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
-            echo "PR Comments: $PR_COMMENTS"
-            if echo "$PR_COMMENTS" | jq . >/dev/null 2>&1; then
-              for COMMENT in $(echo "$PR_COMMENTS" | jq -c '.[]'); do
-                COMMENT_BODY=$(echo "$COMMENT" | jq -r '.body')
-                COMMENT_DATE=$(echo "$COMMENT" | jq -r '.created_at')
-                if [[ "$COMMENT_DATE" > "$LATEST_COMMENT_DATE" ]]; then
-                  LATEST_COMMENT="$COMMENT_BODY"
-                  LATEST_COMMENT_DATE="$COMMENT_DATE"
-                fi
-              done
-            else
-              echo "Failed to parse comments for PR: $PR_NUMBER"
-            fi
-          done
-
-          if [ -z "$LATEST_COMMENT" ]; then
-            echo "No comments found."
+          PR_NUMBER=${{ steps.get_pr_and_commit_sha.outputs.pr_number }}
+          echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
+          PR_COMMENT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments?sort=created&direction=desc")
+          echo "API Response: $PR_COMMENT"
+          COMMENT_BODY=$(echo "$PR_COMMENT" | jq -r '.[0].body')
+          if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" == "null" ]; then
+            echo "No comments found or invalid response format."
             echo "::set-output name=success::false"
           else
-            echo "Latest PR Comment: $LATEST_COMMENT"
-            echo "::set-output name=latest_comment::$LATEST_COMMENT"
+            echo "PR Comment: $COMMENT_BODY"
+            echo "::set-output name=pr_comment::$COMMENT_BODY"
             echo "::set-output name=success::true"
           fi
 
-      - name: Extract URL from the latest PR comment
-        if: ${{ steps.fetch_latest_comment.outputs.success == 'true' }}
+      - name: Extract URL from PR Comment
+        if: ${{ steps.fetch_pr_comment.outputs.success == 'true' }}
         id: extract_url
         run: |
-          LATEST_COMMENT="${{ steps.fetch_latest_comment.outputs.latest_comment }}"
-          if [[ $LATEST_COMMENT =~ (http.*com) ]]; then
+          PR_COMMENT="${{ steps.fetch_pr_comment.outputs.pr_comment }}"
+          if [[ $PR_COMMENT =~ (http.*com) ]]; then
             URL="${BASH_REMATCH[1]}"
             echo "Found URL: $URL"
             echo "::set-output name=url::$URL"
