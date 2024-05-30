@@ -39,14 +39,19 @@ jobs:
             echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
             PR_COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/$TARGET_REPO/issues/$PR_NUMBER/comments")
-            for COMMENT in $(echo "$PR_COMMENTS" | jq -c '.[]'); do
-              COMMENT_BODY=$(echo "$COMMENT" | jq -r '.body')
-              COMMENT_DATE=$(echo "$COMMENT" | jq -r '.created_at')
-              if [[ "$COMMENT_DATE" > "$LATEST_COMMENT_DATE" ]]; then
-                LATEST_COMMENT="$COMMENT_BODY"
-                LATEST_COMMENT_DATE="$COMMENT_DATE"
-              fi
-            done
+            echo "PR Comments: $PR_COMMENTS"
+            if echo "$PR_COMMENTS" | jq . >/dev/null 2>&1; then
+              for COMMENT in $(echo "$PR_COMMENTS" | jq -c '.[]'); do
+                COMMENT_BODY=$(echo "$COMMENT" | jq -r '.body')
+                COMMENT_DATE=$(echo "$COMMENT" | jq -r '.created_at')
+                if [[ "$COMMENT_DATE" > "$LATEST_COMMENT_DATE" ]]; then
+                  LATEST_COMMENT="$COMMENT_BODY"
+                  LATEST_COMMENT_DATE="$COMMENT_DATE"
+                fi
+              done
+            else
+              echo "Failed to parse comments for PR: $PR_NUMBER"
+            fi
           done
 
           if [ -z "$LATEST_COMMENT" ]; then
