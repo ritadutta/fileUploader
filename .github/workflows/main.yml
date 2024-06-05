@@ -15,7 +15,7 @@ jobs:
       - name: Get the latest pull request and commit SHA from the target repo
         id: get_pr_and_commit_sha
         run: |
-          TARGET_REPO="ritadutta/testing_fu"
+          TARGET_REPO="ritadutta/testing"
           # Fetch the latest pull request
           PR_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/$TARGET_REPO/pulls?state=open&sort=updated&direction=desc" | jq -r '.[0]')
@@ -35,7 +35,7 @@ jobs:
       - name: Fetch PR Comment from the target repo
         id: fetch_pr_comment
         run: |
-          TARGET_REPO="ritadutta/testing_fu"
+          TARGET_REPO="ritadutta/testing"
           PR_NUMBER=${{ steps.get_pr_and_commit_sha.outputs.pr_number }}
           echo "Fetching comments for PR: $PR_NUMBER in repo: $TARGET_REPO"
           PR_COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
