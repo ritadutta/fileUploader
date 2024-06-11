@@ -69,15 +69,26 @@ class FileUploadPage {
     //await Utils.isDisplayedGeneric(this.uploadAnotherDataSet,"Upload Another dataset button");
  }
 
+  public async anotherdatasetButton(){
+    await browser.pause(1000);
+    await Utils.genericClick(this.uploadAnotherDataSet,"another data set button");
+  }
+
   public async invalidFileUpload(){
     await browser.pause(1000);
-    const filePath = './test/testdata/test.txt';
+    const filePath = './test/testdata/test.docx';
     const remoteFilePath = await browser.uploadFile(filePath);
     await (await this.fileInput).addValue(remoteFilePath);
     await browser.pause(2000);
     const errmsg = await (await this.errorMsg).getText();
-    await Utils.toEqualAssertionTitle(errmsg,"File type not allowed. Please only add .csv, .xlsx, .xls, .doc, .zip, .pdf");
+    await Utils.toEqualAssertionTitle(errmsg,"File type not allowed. Please only add .csv, .xlsx, .xls, .doc, .zip, .txt, .pdf");
     await browser.pause(1000);
+    const filePath2 = './test/testdata/sgdfgdhfythjgjhgfrfghytrewdfgv23hhjh33rhuifhh.txt';
+    const remoteFilePath2 = await browser.uploadFile(filePath2);
+    await (await this.fileInput).addValue(remoteFilePath);
+    await browser.pause(2000);
+    const title = await (await this.heading).getText();
+    console.log("File uploaded successfully",title);
   }
 
 }

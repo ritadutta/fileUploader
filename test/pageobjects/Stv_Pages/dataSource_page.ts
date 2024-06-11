@@ -57,10 +57,6 @@ class DataSourcePage {
      */
   public async dataSourcePageVisitBloomington() {
     await browser.pause(2000);
-    await Utils.isDisplayedGeneric(this.infoIcon,"Info icon");
-    await this.infoIcon.moveTo();
-    await browser.pause(1000);
-    await (await this.dataSourceinfo).isDisplayed();
     if((await this.selectPartnerNameDropdown).isDisplayed()){
     await Utils.genericClick(this.selectPartnerNameDropdown,"Partner name dropdown arrow");
     await browser.pause(1000);
@@ -104,6 +100,7 @@ class DataSourcePage {
     await browser.pause(5000);
     }
   }
+
 
 }
 export default new DataSourcePage();
